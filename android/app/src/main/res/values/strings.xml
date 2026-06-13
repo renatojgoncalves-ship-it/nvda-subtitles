@@ -23,6 +23,10 @@
 
     <string name="velocidade">Velocidade da voz</string>
     <string name="tom">Tom da voz</string>
+    <string name="volume">Volume da voz</string>
+    <string name="volume_desc">Ajuste o volume da leitura em relação ao som do Disney+.</string>
+    <string name="baixar_conteudo">Baixar o som do Disney+ ao ler</string>
+    <string name="baixar_conteudo_desc">Reduz temporariamente o volume do vídeo enquanto a legenda é lida, para a voz se ouvir por cima do conteúdo.</string>
     <string name="idioma">Idioma da voz</string>
     <string name="zona_legendas">Zona das legendas (parte inferior do ecrã)</string>
     <string name="zona_legendas_desc">Aumente se as legendas aparecerem mais acima no vídeo.</string>

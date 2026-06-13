@@ -89,6 +89,12 @@ class MainActivity : AppCompatActivity() {
         binding.sliderTom.value = tom.coerceIn(0.5f, 2.0f)
         binding.sliderTom.addOnChangeListener { _, value, _ -> tom = value }
 
+        binding.sliderVolume.value = volume.coerceIn(0.1f, 1.0f)
+        binding.sliderVolume.addOnChangeListener { _, value, _ -> volume = value }
+
+        binding.switchBaixarConteudo.isChecked = baixarConteudo
+        binding.switchBaixarConteudo.setOnCheckedChangeListener { _, v -> baixarConteudo = v }
+
         binding.sliderZona.value = zonaLegendas.coerceIn(0.2f, 0.8f)
         binding.sliderZona.addOnChangeListener { _, value, _ -> zonaLegendas = value }
 

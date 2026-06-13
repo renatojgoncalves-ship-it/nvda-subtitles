@@ -171,6 +171,48 @@
                     android:valueTo="2.0"
                     android:value="1.0" />
 
+                <!-- Volume da voz -->
+                <TextView
+                    android:id="@+id/labelVolume"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/volume"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/sliderVolume"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:stepSize="0.1"
+                    android:valueFrom="0.1"
+                    android:valueTo="1.0"
+                    android:value="1.0" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/volume_desc"
+                    android:textSize="12sp"
+                    android:alpha="0.7" />
+
+                <!-- Baixar som do Disney+ ao ler -->
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchBaixarConteudo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/baixar_conteudo"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/baixar_conteudo_desc"
+                    android:textSize="12sp"
+                    android:alpha="0.7" />
+
                 <!-- Zona das legendas -->
                 <TextView
                     android:id="@+id/labelZona"
