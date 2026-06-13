@@ -1,0 +1,40 @@
+<resources>
+    <string name="app_name">Leitor de Legendas</string>
+
+    <string name="accessibility_summary">Lê em voz alta as legendas do Disney+</string>
+    <string name="accessibility_description">Deteta o texto das legendas apresentadas pela aplicação Disney+ e anuncia-o em voz alta através do sintetizador de voz do dispositivo. Todo o processamento é local; nenhum dado sai do telemóvel.</string>
+
+    <!-- Cabeçalho -->
+    <string name="titulo_app">Leitor de Legendas Disney+</string>
+    <string name="subtitulo_app">Ouça as legendas do Disney+ em voz alta. Pensado para acessibilidade — visão reduzida ou apoio à leitura.</string>
+
+    <!-- Estado do serviço -->
+    <string name="estado_servico">Estado do serviço de acessibilidade</string>
+    <string name="estado_ativo">✅ Ativo — as legendas serão lidas.</string>
+    <string name="estado_inativo">⚠️ Inativo — ative o serviço para começar.</string>
+    <string name="btn_abrir_acessibilidade">Abrir definições de acessibilidade</string>
+    <string name="ajuda_acessibilidade">Em \"Apps instaladas\" ou \"Serviços transferidos\", toque em \"Leitor de Legendas\" e ligue o serviço.</string>
+
+    <!-- Controlos -->
+    <string name="leitura_ativa">Leitura ativa</string>
+    <string name="leitura_ativa_desc">Pausar/retomar a leitura sem desligar o serviço.</string>
+    <string name="interromper">Interromper legenda anterior</string>
+    <string name="interromper_desc">Ao surgir uma nova legenda, cortar a anterior em vez de a colocar em fila.</string>
+
+    <string name="velocidade">Velocidade da voz</string>
+    <string name="tom">Tom da voz</string>
+    <string name="idioma">Idioma da voz</string>
+    <string name="zona_legendas">Zona das legendas (parte inferior do ecrã)</string>
+    <string name="zona_legendas_desc">Aumente se as legendas aparecerem mais acima no vídeo.</string>
+
+    <!-- Ações -->
+    <string name="btn_testar">Testar voz</string>
+    <string name="frase_teste">Esta é uma frase de teste das legendas.</string>
+    <string name="btn_abrir_disney">Abrir Disney+</string>
+    <string name="disney_nao_instalado">Disney+ não está instalado neste dispositivo.</string>
+
+    <!-- Instruções / rodapé -->
+    <string name="como_usar_titulo">Como usar</string>
+    <string name="como_usar_passos">1. Ative o serviço de acessibilidade acima.\n2. No Disney+, ligue as legendas (CC) do conteúdo.\n3. Reproduza o vídeo — as legendas serão lidas em voz alta.</string>
+    <string name="nota_privacidade">As legendas são lidas apenas no dispositivo e nunca são gravadas nem enviadas para qualquer servidor.</string>
+</resources>

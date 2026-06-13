@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Configuração do serviço de acessibilidade.
+
+    packageNames está limitado ao Disney+ para que o serviço só receba
+    eventos dessa app — reforça a privacidade (não lê o ecrã de mais nada).
+    canRetrieveWindowContent é necessário para obter o texto das legendas.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackSpoken"
+    android:accessibilityFlags="flagIncludeNotImportantViews|flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/accessibility_description"
+    android:notificationTimeout="100"
+    android:packageNames="com.disney.disneyplus"
+    android:settingsActivity="com.legendas.leitor.MainActivity"
+    android:summary="@string/accessibility_summary" />
