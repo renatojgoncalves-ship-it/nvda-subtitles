@@ -11,13 +11,22 @@ ouvir as legendas.
 
 ## Como funciona
 
-1. O serviço de acessibilidade está restringido, no manifesto, à app Disney+
-   (`com.disney.disneyplus`), pelo que **só recebe eventos dessa app**.
-2. A cada alteração de conteúdo, percorre a árvore de acessibilidade da janela
-   ativa e recolhe os nós de texto na **zona inferior do ecrã** (onde aparecem
-   as legendas), filtrando controlos da interface (botões, etc.).
-3. Junta as linhas, ignora repetições consecutivas e entrega o texto ao
-   Text-to-Speech.
+A view das legendas do Disney+ **não é uma "live region"**: alterar o texto não
+gera um evento de acessibilidade, e por isso o TalkBack só as lê quando o
+utilizador move o foco com o dedo. Para ler em automático, esta app **sonda
+(polling)** a árvore de acessibilidade em vez de esperar por eventos — o
+equivalente Android ao polling do DOM que a extensão de browser fazia.
+
+1. Enquanto o Disney+ está em primeiro plano, a cada ~300 ms o serviço percorre
+   **todas as janelas** (`getWindows()`) pertencentes ao Disney+ — as legendas
+   estão normalmente numa **janela separada** (overlay do player), que a janela
+   ativa sozinha não alcança.
+2. Recolhe os nós de texto na **zona inferior do ecrã** (onde aparecem as
+   legendas), filtrando controlos da interface (botões, relógios, etc.).
+3. Junta as linhas, ignora repetições e entrega o texto ao Text-to-Speech.
+
+O polling pára automaticamente quando o Disney+ deixa de estar em primeiro plano
+(poupa bateria) e recomeça quando volta.
 
 ### Privacidade
 
@@ -75,9 +84,10 @@ android/
 
 ## Limitações conhecidas
 
-- Se o conteúdo for reproduzido com proteção de ecrã (output protegido) ou as
-  legendas forem desenhadas **diretamente sobre o vídeo** sem serem expostas na
-  árvore de acessibilidade, não existe texto para ler — limitação inerente a
-  esta abordagem em Android.
+- A app só consegue ler legendas que existam na **árvore de acessibilidade**
+  (as mesmas que o TalkBack consegue ler ao focar). Se o conteúdo expuser as
+  legendas como imagem/sobre o vídeo sem nó de texto, não há o que ler — é uma
+  limitação inerente a esta abordagem em Android.
 - A deteção assenta na posição do texto no ecrã; o controlo *Zona das legendas*
   permite afinar a app a diferentes layouts.
+- O polling tem um custo mínimo de bateria enquanto o Disney+ está aberto.
