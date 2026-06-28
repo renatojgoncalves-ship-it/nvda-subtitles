@@ -17,6 +17,7 @@ private const val KEY_VOLUME = "volume"
 private const val KEY_BAIXAR_CONTEUDO = "baixar_conteudo"
 private const val KEY_IDIOMA = "idioma"
 private const val KEY_ZONA = "zona_legendas"
+private const val KEY_LEITOR_ECRA = "usar_leitor_ecra"
 
 private fun Context.prefs() =
     applicationContext.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
@@ -65,3 +66,11 @@ var Context.idioma: String
 var Context.zonaLegendas: Float
     get() = prefs().getFloat(KEY_ZONA, 0.45f)
     set(v) = prefs().edit().putFloat(KEY_ZONA, v).apply()
+
+/**
+ * Se verdadeiro, as legendas são lidas pela voz do leitor de ecrã (TalkBack),
+ * em vez da voz própria da app — volume e voz controlados pelo TalkBack.
+ */
+var Context.usarLeitorEcra: Boolean
+    get() = prefs().getBoolean(KEY_LEITOR_ECRA, true)
+    set(v) = prefs().edit().putBoolean(KEY_LEITOR_ECRA, v).apply()

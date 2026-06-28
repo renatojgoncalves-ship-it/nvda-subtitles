@@ -1,49 +1,45 @@
 package com.legendas.leitor
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
+import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
+import android.view.Gravity
+import android.view.View
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
 /**
- * Serviço de acessibilidade que deteta o texto das legendas apresentado pela
- * app Disney+ e o entrega ao [TtsManager] para leitura em voz alta.
+ * Serviço de acessibilidade que deteta o texto das legendas do Disney+ e o lê
+ * em voz alta.
  *
- * Estratégia (equivalente móvel da extensão NVDA, que sondava o DOM da página):
+ * Duas formas de leitura (configurável):
+ *  - **Voz do leitor de ecrã (TalkBack)** — predefinição. O texto é anunciado
+ *    através de um pequeno overlay com [View.announceForAccessibility], pelo que
+ *    é o TalkBack a falar, com a sua voz, volume e "ducking". Uma só voz, volume
+ *    controlado pelo TalkBack, sem a app mexer em volumes do sistema.
+ *  - **Voz própria da app** — alternativa (quando o TalkBack está desligado),
+ *    usando o [TtsManager].
  *
- *  - A view das legendas do Disney+ **não é uma "live region"**, por isso alterar
- *    o texto não gera um evento de acessibilidade fiável. O TalkBack só as lê
- *    quando o utilizador move o foco manualmente. Para ler em automático é
- *    preciso **sondar (polling)** a árvore periodicamente, em vez de esperar por
- *    eventos.
- *  - As legendas costumam estar numa **janela separada** (overlay do player),
- *    pelo que se percorrem **todas as janelas** ([getWindows]) e não apenas a
- *    janela ativa ([rootInActiveWindow]) — é assim que o TalkBack lhes chega.
- *  - Em cada sondagem recolhem-se os nós de texto da app Disney+ na zona inferior
- *    do ecrã, juntam-se as linhas, ignoram-se repetições e fala-se o resultado.
- *
- * O polling só está ativo enquanto o Disney+ está em primeiro plano: pára-se
- * automaticamente quando o Disney+ deixa de ter janelas visíveis (poupa bateria)
- * e recomeça-se quando volta a primeiro plano.
+ * A deteção das legendas é igual nos dois casos: sonda-se periodicamente a
+ * árvore de acessibilidade de todas as janelas do Disney+.
  */
 class SubtitleAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val DISNEY_PACKAGE = "com.disney.disneyplus"
         private const val MIN_CHARS = 2
-
-        /** Intervalo entre sondagens da árvore de acessibilidade. */
         private const val INTERVALO_MS = 300L
-
-        /** Sondagens consecutivas sem Disney+ visível antes de parar o polling. */
         private const val MAX_AUSENCIAS = 10
     }
 
     private val handler = Handler(Looper.getMainLooper())
     private var tts: TtsManager? = null
-    private var ultimaLegenda: String = ""
+    private var overlayView: View? = null
+    private var ultimaLegendaNorm: String = ""
 
     private var aPollar = false
     private var ausenciasSeguidas = 0
@@ -58,7 +54,6 @@ class SubtitleAccessibilityService : AccessibilityService() {
                 disneyPresente = haJanelaDisney()
             }
 
-            // Pára o polling se o Disney+ deixou de estar em primeiro plano.
             if (disneyPresente) {
                 ausenciasSeguidas = 0
             } else if (++ausenciasSeguidas >= MAX_AUSENCIAS) {
@@ -71,13 +66,11 @@ class SubtitleAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        tts = TtsManager(this)
+        criarOverlay()
         iniciarPoll()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Os eventos servem apenas para (re)acordar o polling quando o Disney+
-        // volta a primeiro plano; a leitura em si é feita pela sondagem.
         if (event?.packageName?.toString() == DISNEY_PACKAGE) iniciarPoll()
     }
 
@@ -89,6 +82,7 @@ class SubtitleAccessibilityService : AccessibilityService() {
         pararPoll()
         tts?.libertar()
         tts = null
+        removerOverlay()
         return super.onUnbind(intent)
     }
 
@@ -104,10 +98,65 @@ class SubtitleAccessibilityService : AccessibilityService() {
         handler.removeCallbacks(tarefaPoll)
     }
 
-    /**
-     * Percorre todas as janelas do Disney+ e compõe o texto da legenda.
-     * Invoca [marcarPresente] se encontrar pelo menos uma janela do Disney+.
-     */
+    // ---------------------------------------------------------------------
+    // Leitura
+    // ---------------------------------------------------------------------
+
+    private fun anunciar(legenda: String) {
+        val norm = normalizar(legenda)
+        if (norm.isEmpty() || norm == ultimaLegendaNorm) return
+        ultimaLegendaNorm = norm
+        if (usarLeitorEcra) {
+            anunciarPeloLeitorEcra(legenda)
+        } else {
+            garantirTts().falar(legenda)
+        }
+    }
+
+    /** Faz o TalkBack ler o texto, através do overlay de acessibilidade. */
+    private fun anunciarPeloLeitorEcra(texto: String) {
+        val v = overlayView ?: return
+        v.announceForAccessibility(texto)
+    }
+
+    private fun garantirTts(): TtsManager =
+        tts ?: TtsManager(this).also { tts = it }
+
+    private fun normalizar(s: String): String =
+        s.lowercase().replace(Regex("[^\\p{L}\\p{Nd}]"), "")
+
+    // ---------------------------------------------------------------------
+    // Overlay (para announceForAccessibility)
+    // ---------------------------------------------------------------------
+
+    private fun criarOverlay() {
+        if (overlayView != null) return
+        val wm = getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
+        val v = View(this)
+        val lp = WindowManager.LayoutParams(
+            1, 1,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT
+        )
+        lp.gravity = Gravity.TOP or Gravity.START
+        runCatching {
+            wm.addView(v, lp)
+            overlayView = v
+        }
+    }
+
+    private fun removerOverlay() {
+        val wm = getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        overlayView?.let { v -> runCatching { wm?.removeView(v) } }
+        overlayView = null
+    }
+
+    // ---------------------------------------------------------------------
+    // Deteção das legendas (árvore de acessibilidade)
+    // ---------------------------------------------------------------------
+
     private fun extrairLegendaDasJanelas(marcarPresente: () -> Unit): String? {
         val candidatos = ArrayList<Pair<Rect, String>>()
 
@@ -123,7 +172,6 @@ class SubtitleAccessibilityService : AccessibilityService() {
             }
         }
 
-        // Recurso: algumas versões não expõem o overlay em getWindows().
         if (candidatos.isEmpty()) {
             rootInActiveWindow?.let { raiz ->
                 try {
@@ -142,7 +190,6 @@ class SubtitleAccessibilityService : AccessibilityService() {
         return compor(candidatos)
     }
 
-    /** Verifica (sem recolher texto) se há alguma janela do Disney+ visível. */
     private fun haJanelaDisney(): Boolean {
         for (janela in windows) {
             val raiz = janela.root ?: continue
@@ -154,15 +201,11 @@ class SubtitleAccessibilityService : AccessibilityService() {
         return false
     }
 
-    /** Filtra pela zona inferior do ecrã, ordena e junta as linhas. */
     private fun compor(candidatos: List<Pair<Rect, String>>): String? {
         val alturaEcra = resources.displayMetrics.heightPixels
-        // Limite superior da zona de legendas (ex.: zona = 0.45 → topo a 55% da altura).
         val limiteSuperior = alturaEcra * (1f - zonaLegendas)
-
         val naZona = candidatos.filter { it.first.centerY() >= limiteSuperior }
         val selecionados = naZona.ifEmpty { candidatos }
-
         return selecionados
             .sortedWith(compareBy({ it.first.top }, { it.first.left }))
             .map { it.second.trim() }
@@ -192,17 +235,9 @@ class SubtitleAccessibilityService : AccessibilityService() {
         }
     }
 
-    /** Heurística para distinguir legendas de controlos da interface. */
     private fun pareceLegenda(node: AccessibilityNodeInfo, texto: String): Boolean {
         if (node.isClickable || node.isEditable || node.isCheckable) return false
         if (texto.length < MIN_CHARS) return false
-        // Tem de conter letras (exclui contadores de tempo "12:34", percentagens, etc.).
         return texto.any { it.isLetter() }
-    }
-
-    private fun anunciar(legenda: String) {
-        if (legenda == ultimaLegenda) return
-        ultimaLegenda = legenda
-        tts?.falar(legenda)
     }
 }

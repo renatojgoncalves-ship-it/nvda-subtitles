@@ -102,6 +102,22 @@
                     android:textSize="12sp"
                     android:alpha="0.7" />
 
+                <!-- Usar a voz do leitor de ecrã -->
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchLeitorEcra"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/leitor_ecra"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/leitor_ecra_desc"
+                    android:textSize="12sp"
+                    android:alpha="0.7" />
+
                 <!-- Interromper -->
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/switchInterromper"
@@ -187,7 +203,7 @@
                     android:layout_height="wrap_content"
                     android:stepSize="0.1"
                     android:valueFrom="0.1"
-                    android:valueTo="1.0"
+                    android:valueTo="2.0"
                     android:value="1.0" />
 
                 <TextView

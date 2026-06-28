@@ -18,13 +18,15 @@
     <!-- Controlos -->
     <string name="leitura_ativa">Leitura ativa</string>
     <string name="leitura_ativa_desc">Pausar/retomar a leitura sem desligar o serviço.</string>
+    <string name="leitor_ecra">Usar a voz do leitor de ecrã (TalkBack)</string>
+    <string name="leitor_ecra_desc">Lê as legendas com a própria voz do TalkBack, com o volume controlado por ele. Com esta opção ligada, os controlos de voz e volume abaixo não se aplicam. Requer o TalkBack ligado.</string>
     <string name="interromper">Interromper legenda anterior</string>
     <string name="interromper_desc">Ao surgir uma nova legenda, cortar a anterior em vez de a colocar em fila.</string>
 
     <string name="velocidade">Velocidade da voz</string>
     <string name="tom">Tom da voz</string>
     <string name="volume">Volume da voz</string>
-    <string name="volume_desc">Ajuste o volume da leitura em relação ao som do Disney+.</string>
+    <string name="volume_desc">Até 100% ajusta o volume da voz. Acima de 100%, baixa o som do filme para a voz se destacar ainda mais.</string>
     <string name="baixar_conteudo">Baixar o som do Disney+ ao ler</string>
     <string name="baixar_conteudo_desc">Reduz temporariamente o volume do vídeo enquanto a legenda é lida, para a voz se ouvir por cima do conteúdo.</string>
     <string name="idioma">Idioma da voz</string>

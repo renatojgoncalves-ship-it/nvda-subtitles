@@ -5,20 +5,26 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 
 /**
- * Encapsula o [TextToSpeech]: inicialização assíncrona, aplicação das
- * preferências (velocidade/tom/idioma/volume) e leitura das legendas.
+ * Encapsula o [TextToSpeech]: inicialização assíncrona, preferências
+ * (velocidade/tom/idioma/volume) e leitura das legendas em voz alta.
  *
- * Frases pedidas antes de o motor estar pronto ficam em fila e são lidas
- * assim que a inicialização termina.
+ * Para a voz se ouvir CLARAMENTE acima do filme:
+ *  - A voz é encaminhada para o **canal de acessibilidade** (independente do
+ *    volume de multimédia do Disney+) e, enquanto fala, esse canal é colocado
+ *    no **máximo**.
+ *  - Enquanto fala, baixa-se o áudio do filme ("ducking" via audio focus).
+ *  - O controlo de volume vai de 10% a 200%: até 100% ajusta o volume da voz;
+ *    acima de 100% **baixa progressivamente o som do filme**, para a voz ficar
+ *    mais de 100% acima do áudio do programa.
  *
- * Volume: cada leitura usa [TextToSpeech.Engine.KEY_PARAM_VOLUME] (0.1–1.0)
- * para ajustar o volume da voz face ao conteúdo. Opcionalmente, enquanto fala,
- * pede "audio focus" com ducking para baixar temporariamente o som do Disney+.
+ * As alterações de volume são repostas pouco depois de a leitura parar.
  */
 class TtsManager(context: Context) : TextToSpeech.OnInitListener {
 
@@ -29,17 +35,30 @@ class TtsManager(context: Context) : TextToSpeech.OnInitListener {
 
     private val audioManager =
         appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    private val handler = Handler(Looper.getMainLooper())
+
     private var pedidoFoco: AudioFocusRequest? = null
-    private var focoAtivo = false
+    private var ativo = false
+    private var volAccSalvo = -1
+    private var volMusicSalvo = -1
+
+    private val restaurarRunnable = Runnable { restaurarAudio() }
 
     override fun onInit(status: Int) {
         if (status != TextToSpeech.SUCCESS) return
+        // Encaminha a voz para o canal de acessibilidade (separado do filme).
+        tts?.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+        )
         aplicarPreferencias()
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {}
-            override fun onDone(utteranceId: String?) = largarFocoSeParado()
-            override fun onError(utteranceId: String?) = largarFocoSeParado()
-            override fun onError(utteranceId: String?, errorCode: Int) = largarFocoSeParado()
+            override fun onDone(utteranceId: String?) = aoFimDaFala()
+            override fun onError(utteranceId: String?) = aoFimDaFala()
+            override fun onError(utteranceId: String?, errorCode: Int) = aoFimDaFala()
         })
         pronto = true
         while (filaPendente.isNotEmpty()) {
@@ -57,7 +76,6 @@ class TtsManager(context: Context) : TextToSpeech.OnInitListener {
         if (resultado == TextToSpeech.LANG_MISSING_DATA ||
             resultado == TextToSpeech.LANG_NOT_SUPPORTED
         ) {
-            // Idioma indisponível no dispositivo → recorre ao idioma do sistema.
             motor.language = Locale.getDefault()
         }
     }
@@ -73,7 +91,7 @@ class TtsManager(context: Context) : TextToSpeech.OnInitListener {
     private fun falarAgora(texto: String) {
         val modo =
             if (appContext.interromper) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-        if (appContext.baixarConteudo) pedirFoco()
+        aoComecarFala()
         val params = Bundle().apply {
             putFloat(
                 TextToSpeech.Engine.KEY_PARAM_VOLUME,
@@ -85,7 +103,8 @@ class TtsManager(context: Context) : TextToSpeech.OnInitListener {
 
     fun parar() {
         tts?.stop()
-        largarFoco()
+        handler.removeCallbacks(restaurarRunnable)
+        restaurarAudio()
     }
 
     fun libertar() {
@@ -93,38 +112,75 @@ class TtsManager(context: Context) : TextToSpeech.OnInitListener {
         tts?.shutdown()
         tts = null
         pronto = false
-        largarFoco()
+        handler.removeCallbacks(restaurarRunnable)
+        restaurarAudio()
     }
 
-    /** Pede audio focus transitório com ducking, baixando o som do Disney+. */
-    private fun pedirFoco() {
-        if (focoAtivo) return
+    // ---------------------------------------------------------------------
+    // Gestão do volume voz/filme durante a fala
+    // ---------------------------------------------------------------------
+
+    private fun aoComecarFala() {
+        handler.removeCallbacks(restaurarRunnable)
+        if (ativo) return
+        ativo = true
         val am = audioManager ?: return
-        val pedido = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build()
+
+        // Voz no máximo (canal de acessibilidade).
+        runCatching {
+            volAccSalvo = am.getStreamVolume(AudioManager.STREAM_ACCESSIBILITY)
+            am.setStreamVolume(
+                AudioManager.STREAM_ACCESSIBILITY,
+                am.getStreamMaxVolume(AudioManager.STREAM_ACCESSIBILITY),
+                0
             )
-            .build()
-        pedidoFoco = pedido
-        am.requestAudioFocus(pedido)
-        focoAtivo = true
+        }
+
+        if (appContext.baixarConteudo) {
+            // Baixa o filme enquanto a voz fala (ducking).
+            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                .build()
+            pedidoFoco = req
+            runCatching { am.requestAudioFocus(req) }
+
+            // Acima de 100%, baixa ainda mais o som do filme.
+            val v = appContext.volume
+            if (v > 1.0f) {
+                runCatching {
+                    volMusicSalvo = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    val fator = (2.0f - v).coerceIn(0f, 1f)
+                    am.setStreamVolume(
+                        AudioManager.STREAM_MUSIC,
+                        (volMusicSalvo * fator).toInt(),
+                        0
+                    )
+                }
+            }
+        }
     }
 
-    /** Liberta o audio focus apenas se já não estiver a falar. */
-    private fun largarFocoSeParado() {
+    /** Quando a fala termina, repõe o áudio pouco depois (evita "saltos" entre legendas). */
+    private fun aoFimDaFala() {
         if (tts?.isSpeaking == true) return
-        largarFoco()
+        handler.postDelayed(restaurarRunnable, 700)
     }
 
-    private fun largarFoco() {
-        if (!focoAtivo) return
+    private fun restaurarAudio() {
         val am = audioManager
-        val pedido = pedidoFoco
-        if (am != null && pedido != null) am.abandonAudioFocusRequest(pedido)
+        if (am != null) {
+            runCatching { if (volMusicSalvo >= 0) am.setStreamVolume(AudioManager.STREAM_MUSIC, volMusicSalvo, 0) }
+            runCatching { if (volAccSalvo >= 0) am.setStreamVolume(AudioManager.STREAM_ACCESSIBILITY, volAccSalvo, 0) }
+            pedidoFoco?.let { r -> runCatching { am.abandonAudioFocusRequest(r) } }
+        }
+        volMusicSalvo = -1
+        volAccSalvo = -1
         pedidoFoco = null
-        focoAtivo = false
+        ativo = false
     }
 }
